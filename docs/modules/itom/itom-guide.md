@@ -120,6 +120,10 @@ while (gr.next()) {
 | CI Identifier | Match and merge duplicate CIs | All > CMDB > CI Identifier |
 | Auto Resolution | Automatic alert clearing and incident closure | All > ITOM > Alerts > Auto-Resolve |
 | Playbooks | Automated remediation workflows | All > ITOM > Playbooks |
+| **Service Mapping** | Map business services to infrastructure dependencies | All > ITOM > Service Mapping |
+| **Now Assist for ITOM** | Gen AI-powered alert summarization, root cause analysis, incident generation | All > Event Management > Now Assist |
+| **Cloud Services Catalog** | Self-service portal for approved cloud resource provisioning | All > Cloud > Cloud Services Catalog |
+| **Cloud Configuration Governance** | Automated policy compliance checking and remediation across multi-cloud | All > Cloud > Configuration Governance |
 
 ---
 
@@ -271,7 +275,26 @@ discovery_plan
     ├──► discovery_result (results from runs)
 ```
 
-### CMDB Integration
+### Service Mapping
+
+Service Mapping enables top-down mapping between business services and the underlying infrastructure. Key capabilities:
+
+| Aspect | Detail |
+|--------|--------|
+| Service Map Definitions | Table `service_map` — stores `service`, `pattern`, and CI relationship data |
+| Pattern Types | Pre-built and custom patterns map CI types to business service functions |
+| Service Graph | Visual representation in the Service Graph Navigator showing service-CI dependencies |
+| Business Service Context | Maps CI outages to business service impact (what apps/processes are affected) |
+| Integration | Can integrate with ServiceNow Discovery and third-party discovery tools |
+| CIS-Service Mapping Blueprint | Official exam alignment: `CIS-Service Mapping (KB0011546)` |
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `service_map` | Service map definitions | `service`, `pattern`, `ci`, `active` |
+| `ci_service_map` | CI-to-service map relationships | `ci`, `service_map`, `role` |
+| `sa_service` | Service model for SLO/SLI tracking | `name`, `owner`, `tier`, `criticality` |
+
+### CMDB Integration (continued)
 
 | ITOM Table | Maps to CMDB Table | Relationship |
 |------------|-------------------|--------------|
@@ -280,6 +303,8 @@ discovery_plan
 | `alm_rule` | `cmdb_ci` | Related CI (optional) |
 | `cmdb_ci` | `alm_asset` | Asset link |
 | `discovery_result` | `cmdb_ci` | Discovered CIs |
+| `service_map` | `cmdb_ci` | CIs included in service maps |
+| `ci_service_map` | `cmdb_ci` | CI-to-service mapping relationships |
 
 ---
 
@@ -336,6 +361,118 @@ discovery_plan
 | Correlation rule spam | Too many incidents created | Set `active=false` on new rules; gradually enable with low `order` numbers |
 | Playbook without validation | Remediation steps fail in production | Always test playbooks in a dev/training instance first |
 | Auto-clear without CI check | Clearing alerts on wrong CI | Always verify `ci` field before auto-clear conditions |
+| **Service Mapping not configured** | Service impact unknown; CI outages don't reveal business service dependencies | Configure Service Mapping patterns and map CI relationships to business services |
+| **Now Assist for ITOM not enabled** | Manual alert summarization, slower root cause analysis | Activate `com.snc.itom_now_assist` plugin and configure Gen AI skills |
+| **SLO/SLI not tracked** | No visibility into service reliability targets; error budget consumption unknown | Define SLOs in `sa_service`, implement SLIs, monitor error budgets |
+| **Cloud Accelerate not implemented** | Manual cloud provisioning, no policy compliance, uncontrolled cloud spend | Implement Cloud Services Catalog, CCG policies, CAM access governance |
+| **Certificate expiration not monitored** | Unexpected TLS certificate outages, service disruptions | Set up certificate audit checks, monitor expiration dates, automate renewal workflows |
+| **Service Graph Connectors not integrated** | Siloed monitoring data, incomplete CMDB, poor visibility into third-party tool impacts | Configure Service Graph Connectors to integrate third-party discovery/monitoring data into CMDB |
+
+---
+
+## Service Observability & Reliability (SLO/SLI)
+
+ServiceNow ITOM supports Service Level Objective (SLO) and Service Level Indicator (SLI) tracking to measure and maintain service reliability.
+
+| Concept | Description | Table/Feature |
+|---|---|---|
+| **Service Level Objective (SLO)** | Define availability/reliability targets per service (e.g., 99.9% uptime) | `sa_service` table, Service Level Objective Management |
+| **Service Level Indicator (SLI)** | Quantifiable measures of service reliability (e.g., request latency, error rate) | KPIs, Dashboard widgets |
+| **Error Budget** | Monitor error budget consumption vs. SLO targets; track remaining budget before SLO breach | Health Log Analytics, Service Observability |
+| **SLO Breach Response** | Automated escalation, notification, or remediation when SLOs are at risk | Event Management, Orchestration, Alert Management |
+| **Predictive Alerting** | ML-based anomaly detection before thresholds breach | Health Log Analytics, Metric Intelligence, Now Assist for ITOM |
+| **Now Assist for ITOM** | Gen AI-powered alert summarization, incident generation, root cause analysis in plain language | `com.snc.itom_now_assist` plugin, All > Event Management > Now Assist |
+
+### Now Assist for ITOM
+
+Now Assist for ITOM is ServiceNow's generative AI enhancement for Event Management and AIOps. Key capabilities:
+
+| Capability | Description | Benefit |
+|---|---|---|
+| **Alert Summarization** | Gen AI converts raw alerts into 2-3 sentence summaries | Reduces cognitive load, faster triage |
+| **Root Cause Analysis** | AI suggests probable root causes based on historical patterns and CI data | Faster diagnosis, reduced MTTR |
+| **Incident Generation** | AI can auto-create incidents from correlated events | Automated incident creation, reduced manual effort |
+| **Runbook Step Generation** | AI suggests remediation steps based on similar past incidents | Accelerated playbook execution, consistent runbooks |
+| **Service Topology Explanation** | AI explains service impacts and dependency chains in natural language | Improved visibility, better communication |
+
+**Instance requirement:** Discovery, Event Management, Service Mapping, Orchestration plugins active. Now Assist for ITOM optional (separate SKU, requires ITOM license + Now Assist license with LLM token allocation).
+
+**License:** `com.snc.itom_now_assist` — Now Assist for ITOM, separate from base ITOM.
+
+| Trigger | Action | Time Savings |
+|---|---|---|
+| Alert summarization → 2-3 sentence summary | Reduce alert fatigue | 3-5 min per incident |
+| Root cause suggestion | Faster diagnosis | 10-15 min per incident |
+| Runbook step generation | Automated remediation guidance | 15-20 min per incident |
+
+### Metric Intelligence & Health Log Analytics
+
+Health Log Analytics (HLA) uses machine learning to spot unusual performance patterns and log anomalies before a full outage happens. Key capabilities:
+
+| Feature | Description | Use Case |
+|---|---|---|
+| **Anomaly Detection** | ML models identify deviations from normal patterns in metrics and logs | Detect performance degradations early |
+| **Log Anomaly Correlation** | Correlate log anomalies with event spikes and CI changes | Identify root causes from log data |
+| **Performance Metrics Tracking** | Monitor key performance indicators (latency, throughput, error rates) | SLO/SLI compliance monitoring |
+| **Predictive Alerting** | Generate alerts before thresholds are breached based on ML predictions | Proactive outage prevention |
+
+**Table:** `hlw_log` (Health Log Warehouse) stores the aggregated log data for ML analysis.
+
+---
+
+## ITOM Cloud Accelerate
+
+Formerly packaged as ITOM Optimization and Governance, this pillar automates cloud provisioning and enforces policy compliance across multi-cloud environments.
+
+### Cloud Services Catalog (CSC)
+
+Provides a self-service portal for teams to request and deploy approved cloud resources with built-in governance.
+
+| Feature | Description | Approved Resources |
+|---|---|---|
+| **Self-Service Requests** | Teams can request AWS, Azure, or GCP resources through a curated catalog | AWS EC2, S3; Azure VMs, Blob Storage; GCP Compute, Cloud Storage |
+| **Built-In Governance** | Policies enforce resource quotas, tagging standards, and compliance requirements before provisioning | Auto-tagging, cost center assignment, environment labeling |
+| **Lifecycle Management** | Track cloud resources from provisioning to retirement, including cost allocation | Resource tagging, cost attribution, decommissioning workflows |
+| **Chargeback/Showback** | Allocate cloud costs to business units based on actual consumption | Cost breakdown by team, project, or environment |
+
+### Cloud Configuration Governance (CCG)
+
+Continuously checks cloud resources against security and compliance policies and automates remediation for violations.
+
+| Policy Type | Description | Remediation |
+|---|---|---|
+| **Security Policies** | Enforce encryption, network restrictions, IAM roles, and secrets management | Auto-remediate misconfigured SGs, fix IAM policies |
+| **Compliance Policies** | Support SOC2, HIPAA, GDPR, and industry-specific requirements | Automated audit log generation, policy violation tickets |
+| **Cost Policies** | Set budget alerts, resource right-sizing recommendations, and spend limits | Auto-terminate idle resources, suggest instance type changes |
+| **Governance Policies** | Enforce organizational standards for tagging, naming conventions, and resource hierarchies | Auto-apply tags, rename resources, reorganize hierarchies |
+
+**Table:** `ccg_policy` stores governance policies; `ccg_violation` tracks violations and remediation status.
+
+### Cloud Account Management (CAM)
+
+Streamlines onboarding, lifecycle tracking, and access governance for cloud accounts.
+
+| Feature | Description | Benefit |
+|---|---|---|
+| **Cloud Account Onboarding** | Register new cloud accounts (AWS, Azure, GCP) with required credentials and permissions | Centralized account management, audit-ready records |
+| **Lifecycle Tracking** | Track account status from onboarding through periodic review to retirement | Automated lifecycle alerts, expiration reminders |
+| **Access Governance** | Role-based access control for cloud account administrators and resource operators | Least-privilege access, reduced attack surface |
+| **Periodic Access Certification** | Automated certification campaigns to verify ongoing access need | Recertification campaigns, access revocation upon failure |
+
+**Table:** `cam_cloud_account` stores cloud account records; `cam_access_certification` tracks certification campaigns.
+
+### Cloud Action Library & Migration Assessment
+
+Offers prebuilt workflows for day-two cloud operations and tools to plan cloud migrations.
+
+| Capability | Description | Use Case |
+|---|---|---|
+| **Day-Two Operations** | Prebuilt workflows for common cloud operations: scaling, patching, backup, recovery | Reduce manual toil, consistent operations |
+| **Migration Assessment** | Tools to assess on-premises workloads for cloud migration readiness | Application dependency mapping, cost estimation, migration planning |
+| **Migration Wave Planning** | Plan and execute migration waves with rollback criteria and success criteria | Structured migration, reduced risk |
+| **Cloud Cost Optimization** | Ongoing analysis of cloud spending with rightsizing recommendations and savings plan generation | Reduce cloud waste, optimize resource utilization |
+
+**Table:** `migration_assessment` stores migration wave plans; `cloud_cost_opt` stores optimization recommendations.
 
 ---
 
@@ -375,5 +512,13 @@ discovery_plan
 5. How do correlation rules reduce alert volume?
 6. What ITOM capability can automatically close incidents when all related alerts are cleared?
 7. What playbook pattern can reduce Major incident resolution time from hours to minutes?
+8. Which ServiceNow ITOM pillar creates a real-time map of on-premises and multi-cloud infrastructure inside the CMDB?
+9. Which ITOM pillar focuses on predicting, detecting, and resolving service issues before users feel the impact?
+10. Which ITOM pillar automates cloud provisioning and enforces policy compliance across multi-cloud environments?
+11. What table stores service map definitions in ServiceNow ITOM?
+12. What Now Assist for ITOM capability converts raw alerts into 2-3 sentence summaries?
+13. What is the ServiceNow table for SLO/SLI tracking?
+14. What cloud resource types are available in the Cloud Services Catalog?
+15. What CCG policy type enforces encryption, IAM roles, and secrets management?
 
 ---
